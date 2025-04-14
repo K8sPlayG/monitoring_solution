@@ -91,7 +91,7 @@ data:
   fluent-bit.conf: |
     [SERVICE]
         Flush        5
-        Log_Level    debug
+        Log_Level    info
         Parsers_File parsers.conf
     [INPUT]
         Name             tail
