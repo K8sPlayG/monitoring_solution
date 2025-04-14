@@ -1,3 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -140,18 +146,19 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: example-app
+  name: example-golang-app
+  namespace: monitoring
   labels:
-    app: example-app
+    app: example-golang-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: example-app
+      app: example-golang-app
   template:
     metadata:
       labels:
-        app: example-app
+        app: example-golang-app
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -167,12 +174,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: demo-app-web
+  name: example-golang-app
   namespace: monitoring
 spec:
   selector:
-    app: demo-app
+    app: example-golang-app
   ports:
     - port: 8081
       targetPort: 8080
       name: metrics
+---
+
