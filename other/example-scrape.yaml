@@ -1,0 +1,127 @@
+# This file demonstrates two ways Prometheus can scrape metrics in Kubernetes:
+# 1. Pod-based scraping (using pod annotations)
+# 2. Service-based scraping (using service annotations)
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prometheus-demo
+---
+# =============================
+# 1. POD-BASED SCRAPING EXAMPLE
+# =============================
+# Pod annotations tell Prometheus to scrape this pod directly
+# Good for: Microservices where each instance exposes its own metrics
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-scrape-example
+  namespace: prometheus-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pod-metrics
+  template:
+    metadata:
+      labels:
+        app: pod-metrics
+      # These annotations tell Prometheus to scrape each pod individually
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: metrics
+        image: prom/prometheus-example-app:latest
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+---
+# Service for pod access (not used for scraping in this example)
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-metrics
+  namespace: prometheus-demo
+spec:
+  selector:
+    app: pod-metrics
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+# ================================
+# 2. SERVICE-BASED SCRAPING EXAMPLE
+# ================================
+# Service annotations tell Prometheus to scrape endpoints behind this service
+# Good for: Stateful services, clustered apps, or services with internal load balancing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-scrape-example
+  namespace: prometheus-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: service-metrics
+  template:
+    metadata:
+      labels:
+        app: service-metrics
+      # No prometheus.io annotations here - they're on the Service instead
+    spec:
+      containers:
+      - name: metrics
+        image: prom/prometheus-example-app:latest
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+---
+# Service with annotations for Prometheus to scrape
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-metrics
+  namespace: prometheus-demo
+  # These annotations tell Prometheus to scrape this service's endpoints
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: service-metrics
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+# ==========================
+# UNDERSTANDING THE DIFFERENCE
+# ==========================
+# The key differences:
+#
+# 1. Pod-based scraping:
+#    - Each pod is scraped individually
+#    - Metrics show up with pod-specific labels (IP, name)
+#    - You get per-pod metrics
+#    - Good for microservices, stateless apps where you want individual stats
+#
+# 2. Service-based scraping:
+#    - Prometheus discovers endpoints behind the service
+#    - Metrics are associated with the service
+#    - You may get fewer individual targets
+#    - Good for stateful sets, clustered apps, or when you care about the service as a whole
+#
+# In prometheus.yaml, these correspond to:
+# - job_name: 'kubernetes-pods' (for pod-based scraping)
+# - job_name: 'kubernetes-service-endpoints' (for service-based scraping)
+

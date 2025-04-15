@@ -36,6 +36,12 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
+# TODO: put some sorta affinity on the
+# fluent-bit pod so that it is scheduled
+# with the pods in the corresponding simulated
+# platform.
+# This isn't a huge deal right now because
+# we only have a single node in the cluster
 apiVersion: apps/v1
 kind: Deployment
 metadata:
