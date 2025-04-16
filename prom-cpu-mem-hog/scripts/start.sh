@@ -4,4 +4,4 @@ echo "Starting stress test script..."
 echo "Waiting for stress test to initialize..."
 sleep 5
 echo "Starting metrics exporter..."
-python3 /app/prom-exporter.py
+python3 -u /app/prom-exporter.py

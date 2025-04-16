@@ -11,28 +11,46 @@ import threading
 
 # Global metrics
 metrics = {
-    "cpu_usage_percent": 0,
-    "memory_usage_bytes": 0,
-    "start_time": time.time()
 }
 
-lock = threading.lock()
+lock = threading.Lock()
 
 # Update metrics in background
 def update_metrics():
-    global metrics
+    total_cpu_percent = 0
+    total_memory_usage_bytes = 0
+    metrics = {}
+    # Iterate through all processes
+    for proc in psutil.process_iter(attrs=['name', 'cpu_percent', 'memory_info']):
+        try:
+            # Check if process name starts with "stress-ng"
+            if proc.info['name'] and proc.info['name'].startswith("stress-ng"):
+                # Accumulate CPU and memory usage
+                total_cpu_percent += proc.info['cpu_percent']
+                total_memory_usage_bytes += proc.info['memory_info'].rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Skip processes that are not accessible or have terminated
+            continue
+    metrics["cpu_usage_percent"] = total_cpu_percent
+    metrics["memory_usage_bytes"] = total_memory_usage_bytes
+    return metrics
+
+def run_metrics_thread():
     global lock
+    global metrics
     while True:
-        with lock:
-            try:
-                metrics["cpu_usage_percent"] = psutil.cpu_percent()
-                metrics["memory_usage_bytes"] = psutil.Process(os.getpid()).memory_info().rss
-            except Exception as e:
-                print(f"Error updating metrics: {e}")
+        new_metrics = update_metrics()
+        if new_metrics:
+            with lock:
+                if new_metrics['cpu_usage_percent'] == 0:
+                    time.sleep(0.2)
+                    new_metrics = update_metrics()
+                metrics = new_metrics
+                print(f'new_metrics = {new_metrics}')
         time.sleep(1)
 
 # Start background thread
-threading.Thread(target=update_metrics, daemon=True).start()
+threading.Thread(target=run_metrics_thread, daemon=True).start()
 
 # HTTP server for metrics endpoint
 class MetricsHandler(http.server.BaseHTTPRequestHandler):
@@ -44,20 +62,17 @@ class MetricsHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/plain')
             self.end_headers()
 
+            output = ""
             with lock:
                 # Generate Prometheus metrics
-                output = ""
-                output += f"# HELP stress_test_uptime_seconds Uptime of the stress test in seconds\n"
-                output += f"# TYPE stress_test_uptime_seconds counter\n"
-                output += f"stress_test_uptime_seconds {time.time() - metrics['start_time']}\n"
+                if metrics:
+                    output += f"# HELP stress_test_cpu_usage_percent Current CPU usage percent\n"
+                    output += f"# TYPE stress_test_cpu_usage_percent gauge\n"
+                    output += f"stress_test_cpu_usage_percent {metrics['cpu_usage_percent']}\n"
 
-                output += f"# HELP stress_test_cpu_usage_percent Current CPU usage percent\n"
-                output += f"# TYPE stress_test_cpu_usage_percent gauge\n"
-                output += f"stress_test_cpu_usage_percent {metrics['cpu_usage_percent']}\n"
-
-                output += f"# HELP stress_test_memory_usage_bytes Current memory usage in bytes\n"
-                output += f"# TYPE stress_test_memory_usage_bytes gauge\n"
-                output += f"stress_test_memory_usage_bytes {metrics['memory_usage_bytes']}\n"
+                    output += f"# HELP stress_test_memory_usage_bytes Current memory usage in bytes\n"
+                    output += f"# TYPE stress_test_memory_usage_bytes gauge\n"
+                    output += f"stress_test_memory_usage_bytes {metrics['memory_usage_bytes']}\n"
 
             self.wfile.write(output.encode())
         else:

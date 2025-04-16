@@ -1,3 +1,6 @@
+#Not using this as it is meant to get various
+#statistics from the entire node (cant be configured
+# to do so per nameswpace)
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -9,9 +12,9 @@ kind: ClusterRole
 metadata:
   name: node-exporter
 rules:
-- apiGroups: [""]
-  resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
-  verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -22,9 +25,9 @@ roleRef:
   kind: ClusterRole
   name: node-exporter
 subjects:
-- kind: ServiceAccount
-  name: node-exporter
-  namespace: monitoring
+  - kind: ServiceAccount
+    name: node-exporter
+    namespace: monitoring
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -49,46 +52,46 @@ spec:
       hostNetwork: true
       hostPID: true
       containers:
-      - name: node-exporter
-        image: prom/node-exporter:v1.7.0
-        args:
-        - --path.procfs=/host/proc
-        - --path.sysfs=/host/sys
-        - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
-        - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
-        ports:
-        - containerPort: 9100
-          name: metrics
-        resources:
-          limits:
-            cpu: 250m
-            memory: 180Mi
-          requests:
-            cpu: 102m
-            memory: 180Mi
-        volumeMounts:
-        - name: proc
-          mountPath: /host/proc
-          readOnly: true
-        - name: sys
-          mountPath: /host/sys
-          readOnly: true
-        - name: root
-          mountPath: /rootfs
-          readOnly: true
+        - name: node-exporter
+          image: prom/node-exporter:v1.7.0
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+            - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+          ports:
+            - containerPort: 9100
+              name: metrics
+          resources:
+            limits:
+              cpu: 250m
+              memory: 180Mi
+            requests:
+              cpu: 102m
+              memory: 180Mi
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /rootfs
+              readOnly: true
       tolerations:
-      - effect: NoSchedule
-        operator: Exists
+        - effect: NoSchedule
+          operator: Exists
       volumes:
-      - name: proc
-        hostPath:
-          path: /proc
-      - name: sys
-        hostPath:
-          path: /sys
-      - name: root
-        hostPath:
-          path: /
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /
 ---
 apiVersion: v1
 kind: Service
@@ -102,8 +105,7 @@ spec:
   selector:
     app: node-exporter
   ports:
-  - name: metrics
-    port: 9100
-    targetPort: 9100
+    - name: metrics
+      port: 9100
+      targetPort: 9100
   clusterIP: None
-

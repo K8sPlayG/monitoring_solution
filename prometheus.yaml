@@ -79,34 +79,34 @@ data:
           - source_labels: [__meta_kubernetes_namespace]
             action: keep
             regex: monitoring
-          
+
           # ANNOTATION FILTERING: Only scrape pods with prometheus.io/scrape=true
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: true
-          
+
           # PATH CONFIGURATION: Use custom metrics path if specified in annotation
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
             regex: (.+)
-          
+
           # PORT CONFIGURATION: Use custom port if specified in annotation
           - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
             action: replace
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
-          
+
           # METADATA ENRICHMENT: Add pod labels as Prometheus labels
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
-          
+
           # METADATA ENRICHMENT: Add namespace as label
           - source_labels: [__meta_kubernetes_namespace]
             action: replace
             target_label: kubernetes_namespace
-          
+
           # METADATA ENRICHMENT: Add pod name as label
           - source_labels: [__meta_kubernetes_pod_name]
             action: replace
@@ -122,67 +122,54 @@ data:
           - source_labels: [__meta_kubernetes_namespace]
             action: keep
             regex: monitoring
-          
+
           # ANNOTATION FILTERING: Only scrape services with prometheus.io/scrape=true
           - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
             action: keep
             regex: true
-          
+
           # PATH CONFIGURATION: Use custom metrics path if specified in annotation
           - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
             regex: (.+)
-          
+
           # PORT CONFIGURATION: Use custom port if specified in annotation
           - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
             action: replace
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
-          
+
           # METADATA ENRICHMENT: Add service labels as Prometheus labels
           - action: labelmap
             regex: __meta_kubernetes_service_label_(.+)
-          
+
           # METADATA ENRICHMENT: Add namespace as label
           - source_labels: [__meta_kubernetes_namespace]
             action: replace
             target_label: kubernetes_namespace
-          
+
           # METADATA ENRICHMENT: Add service name as label
           - source_labels: [__meta_kubernetes_service_name]
             action: replace
             target_label: kubernetes_name
 
-      # Node-level metrics collection via node-exporter
-      # This job collects system metrics (CPU, memory, disk, network) from each node
-      - job_name: 'node-exporter'
+      #For grabbing cpu/memory usage
+      - job_name: 'kubelet'
         kubernetes_sd_configs:
-          - role: endpoints
-            namespaces:
-              names:
-                - monitoring
-        scheme: http
+          - role: pod
         relabel_configs:
-          # SERVICE SELECTION: Only target the node-exporter service
-          - source_labels: [__meta_kubernetes_service_name]
+          # Keep only targets from the specific namespace
+          - source_labels: [__meta_kubernetes_namespace]
             action: keep
-            regex: node-exporter
-          
-          # METADATA ENRICHMENT: Add node labels from Kubernetes
-          - action: labelmap
-            regex: __meta_kubernetes_node_label_(.+)
-          
-          # INSTANCE NAMING: Set the instance label to the node name
-          - source_labels: [__meta_kubernetes_endpoint_node_name]
-            action: replace
+            regex: monitoring
+          # Replace the instance label for clarity
+          - source_labels: [__meta_kubernetes_pod_name]
             target_label: instance
-          
-          # NODE IDENTIFICATION: Add node name as explicit label
-          - source_labels: [__meta_kubernetes_endpoint_node_name]
-            action: replace
-            target_label: node
+        metrics_path: /metrics/resource
+        scheme: http
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -257,9 +244,9 @@ kind: Service
 metadata:
   name: prometheus
   namespace: monitoring
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "9090"
+  # annotations:
+  #   prometheus.io/scrape: "true"
+  #   prometheus.io/port: "9090"
 spec:
   selector:
     app: prometheus
