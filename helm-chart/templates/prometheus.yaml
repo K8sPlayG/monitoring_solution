@@ -13,6 +13,7 @@ rules:
     resources:
       - nodes
       - nodes/proxy
+      - nodes/metrics # Add this to grant access to node metrics
       - services
       - endpoints
       - pods
@@ -58,8 +59,10 @@ metadata:
 data:
   prometheus.yml: |
     global:
-      scrape_interval: 15s
-      evaluation_interval: 15s
+      scrape_interval: 2s
+      evaluation_interval: 2s
+      # scrape_interval: 15s
+      # evaluation_interval: 15s
       external_labels:
         monitor: 'k8s-monitor'
 
@@ -157,18 +160,36 @@ data:
 
       #For grabbing cpu/memory usage
       - job_name: 'kubelet'
+        metrics_path: '/metrics/resource' # Path to scrape kubelet metrics
+        scheme: 'https'
         kubernetes_sd_configs:
-          - role: pod
+          - role: node
+        tls_config:
+          insecure_skip_verify: true # Use this if kubelet uses self-signed certificates
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
         relabel_configs:
-          # Keep only targets from the specific namespace
-          - source_labels: [__meta_kubernetes_namespace]
-            action: keep
+          #NOTE: there is nothing in here because the relabel configs
+          # only considers labels that the job exposes (and it doesn't
+          # expose namespace, etc labels. What we really want it to
+          # filter by the attributes of particular statistics;
+          # this what the metric_relabel_configs is for.
+
+        #Filter out unwanted stats.
+        #Stats look like this:
+        #pod_memory_working_set_bytes{namespace="rob-monitor",pod="golang-app"}
+        #You can see these via:
+        # kubectl get --raw /api/v1/nodes/gauss/proxy/metrics/resource
+        metric_relabel_configs:
+          # Keep metrics only from the specified namespace
+          - source_labels: ['namespace']
             regex: {{ .Values.namespace }}
-          # Replace the instance label for clarity
-          - source_labels: [__meta_kubernetes_pod_name]
-            target_label: instance
-        metrics_path: /metrics/resource
-        scheme: http
+            action: keep
+
+          # Drop metrics that don't include "cpu" or "memory" in the name
+          - source_labels: ['__name__']
+            regex: '.*(cpu|memory).*'
+            action: keep
 
 ---
 apiVersion: apps/v1
@@ -206,6 +227,7 @@ spec:
             - "--web.console.libraries=/etc/prometheus/console_libraries"
             - "--web.console.templates=/etc/prometheus/consoles"
             - "--web.enable-lifecycle"
+            # - "--log.level=debug"
           ports:
             - containerPort: 9090
               name: web
