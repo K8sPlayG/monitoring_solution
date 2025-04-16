@@ -15,6 +15,7 @@ metadata:
   labels:
     app: {{ .pod.name }}
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - name: {{ .pod.name }}
     image: {{ include "pod.image" (dict "pod" .pod "pod_defaults" .values.pod_defaults) }}
@@ -34,6 +35,8 @@ metadata:
     prometheus.io/scrape: "true"
     prometheus.io/port: "{{ .pod.prometheusScrapePort | default .values.pod_defaults.prometheusScrapePort }}"
     prometheus.io/path: "/metrics"
+  labels:
+    app: {{ .pod.name }}
 spec:
   selector:
     app: {{ .pod.name }}

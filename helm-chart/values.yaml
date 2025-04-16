@@ -19,6 +19,10 @@ example_pods:
     image: golang_prometheus
     prometheusScrapePort: 8080
 
+prometheus_config:
+  image: prom/prometheus:v2.48.1
+  pullPolicy: Always
+
 #Allow helm user to add other pods here
 other_pods: []
 
