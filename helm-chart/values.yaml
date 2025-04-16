@@ -1,0 +1,24 @@
+namespace: my-default-namespace
+pod_defaults:
+  image_tag: latest
+  container_registry: ""
+  #If this is non-zero, the corresponding pod service
+  # will have the folling annotations:
+  #   prometheus.io/scrape: "true"
+  #   prometheus.io/port: <servicePort>
+  #   prometheus.io/metrics: "/metrics"
+  prometheusScrapePort: 0
+  pullPolicy: Always
+
+example_pods:
+  - name: cpu-mem-hog
+    image: prom-cpu-mem-hog
+    #This pod doesn't have an prometheusEndpoint
+    prometheusScrapePort: 8000
+  - name: golang-app
+    image: golang_prometheus
+    prometheusScrapePort: 8080
+
+#Allow helm user to add other pods here
+other_pods: []
+

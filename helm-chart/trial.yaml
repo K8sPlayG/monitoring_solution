@@ -1,0 +1,54 @@
+---
+# Source: monitoring-chart/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-default-namespace
+---
+# Source: monitoring-chart/templates/example-pods.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang_app-svc
+  namespace: my-default-namespace
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: golang_app
+  ports:
+  - protocol: TCP
+    port: 9090
+    targetPort: 9090
+---
+# Source: monitoring-chart/templates/example-pods.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu_mem_hog
+  namespace: my-default-namespace
+  labels:
+    app: cpu_mem_hog
+spec:
+  containers:
+  - name: cpu_mem_hog
+    image: some-custom-image-registry/prom-cpu-mem-hog
+    imagePullPolicy: Always
+---
+# Source: monitoring-chart/templates/example-pods.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: golang_app
+  namespace: my-default-namespace
+  labels:
+    app: golang_app
+spec:
+  containers:
+  - name: golang_app
+    image: /golang_prometheus:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 9090

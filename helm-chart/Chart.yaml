@@ -1,0 +1,7 @@
+
+apiVersion: v2
+name: monitoring-chart
+description: Helm chart with Promethues and Fluent-bit support
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

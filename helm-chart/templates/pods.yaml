@@ -1,0 +1,14 @@
+{{- $values := .Values }}
+
+
+{{- range .Values.example_pods }}
+{{- include "pod.spec" (dict "pod" . "values" $values) }}
+---
+{{- end }}
+
+
+{{- range .Values.other_pods }}
+{{- include "pod.spec" (dict "pod" . "values" $values) }}
+---
+{{- end }}
+
