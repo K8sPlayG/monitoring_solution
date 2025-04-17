@@ -14,6 +14,12 @@ metadata:
   namespace: {{ .values.namespace }}
   labels:
     app: {{ .pod.name }}
+{{- if gt (int (.pod.prometheusScrapePort | default .values.pod_defaults.prometheusScrapePort)) 0 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .pod.prometheusScrapePort | default .values.pod_defaults.prometheusScrapePort }}"
+    prometheus.io/path: "/metrics"
+{{- end }}
 spec:
   terminationGracePeriodSeconds: 0
   containers:
@@ -31,10 +37,6 @@ kind: Service
 metadata:
   name: {{ .pod.name }}-svc
   namespace: {{ .values.namespace }}
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "{{ .pod.prometheusScrapePort | default .values.pod_defaults.prometheusScrapePort }}"
-    prometheus.io/path: "/metrics"
   labels:
     app: {{ .pod.name }}
 spec:

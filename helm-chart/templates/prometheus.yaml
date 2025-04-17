@@ -67,10 +67,11 @@ data:
         monitor: 'k8s-monitor'
 
     scrape_configs:
-      # Self-monitoring - Prometheus scrapes its own metrics
-      - job_name: 'prometheus'
-        static_configs:
-          - targets: ['localhost:9090']
+      # # Self-monitoring - Prometheus scrapes its own metrics
+      #Don't need this for our initial demo
+      # - job_name: 'prometheus'
+      #   static_configs:
+      #     - targets: ['localhost:9090']
 
       # Pod-based metrics collection
       # This job discovers and scrapes individual pods with prometheus.io/scrape annotation
