@@ -1,0 +1,162 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: logger-sa
+  namespace: my-namespace
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: logger-role
+  namespace: my-namespace
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: logger-rolebinding
+  namespace: my-namespace
+subjects:
+  - kind: ServiceAccount
+    name: logger-sa
+    namespace: my-namespace
+roleRef:
+  kind: Role
+  name: logger-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{ .Values.namespace }}
+data:
+  prometheus.yml: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/application-logs.fifo
+        Parser            my_parser  # Use the parser you define below
+        Tag               kube.*
+        #Don't need this anymore. the log-collector handles the multiline grouping of logs.
+        # Multiline         On
+        # Parser_Firstline  multiline_pods
+
+    [PARSER]
+        Name              my_parser
+        Format            regex
+        Regex             ^timestamp:(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.+-]+),podName:(?<podName>[^,]+),log:(?<log>.+)
+        Skip_Empty_Lines  On
+
+    [OUTPUT]
+        Name          loki
+        Match         kube.*
+        #TODO: need to replace "logging' with the namespace name
+        Host          loki.logging.svc.cluster.local
+        Port          3100
+        Labels        podName=$podName
+        LabelKeys     timestamp,podName
+
+    [OUTPUT]
+        Name          stdout
+        Match         *
+        Format        json
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: namespace-logger
+  namespace: my-namespace
+  labels:
+    app: namespace-logger
+spec:
+  serviceAccountName: logger-sa
+  volumes:
+    - name: logs-volume
+      emptyDir: {}
+
+  initContainers:
+    - name: create-fifo
+      image: busybox
+      command: ["sh", "-c", "mkfifo /var/log/application-logs.fifo"]
+      volumeMounts:
+        - name: logs-volume
+          mountPath: /var/log
+
+  containers:
+    - name: log-collector
+      #TODO: should be our custom image
+      image: python:3.9-slim
+      command:
+        - python3
+        - /log-collector.py
+      env:
+        - name: LOG_FIFO_PATH
+          value: "/var/log/application-logs.fifo"
+      volumeMounts:
+        - name: logs-volume
+          mountPath: /var/log
+
+    - name: fluent-bit
+      image: fluent/fluent-bit:latest
+      args:
+        - -i
+        - tail
+        - -p
+        - path=/var/log/application-logs.fifo
+        - -o
+        - es
+        - -p
+        - host=elasticsearch-logging.svc.cluster.local
+        - -p
+        - port=9200
+        - -p
+        - index=namespace-logs
+      volumeMounts:
+        - name: logs-volume
+          mountPath: /var/log
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{ .Values.namespace }}
+data:
+  prometheus.yml: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/application-logs.fifo
+        Parser            my_parser  # Use the parser you define below
+        Tag               kube.*
+        #Don't need this anymore. the log-collector handles the multiline grouping of logs.
+        # Multiline         On
+        # Parser_Firstline  multiline_pods
+
+    [PARSER]
+        Name              my_parser
+        Format            regex
+        Regex             ^timestamp:(?<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.+-]+),podName:(?<podName>[^,]+),log:(?<log>.+)
+        Skip_Empty_Lines  On
+
+    [OUTPUT]
+        Name          loki
+        Match         kube.*
+        #TODO: need to replace "logging' with the namespace name
+        Host          loki.logging.svc.cluster.local
+        Port          3100
+        Labels        podName=$podName
+        LabelKeys     timestamp,podName
+
+    [OUTPUT]
+        Name          stdout
+        Match         *
+        Format        json
+---
+#TODO: need to configure lokig
